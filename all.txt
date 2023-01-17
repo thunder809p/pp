@@ -1,0 +1,530 @@
+MergeSort:
+
+#include<stdio.h>
+#include<omp.h>
+#include<time.h>
+
+void merge(int array[],int low,int mid,int high){
+    int temp[30],i,j,k,m;
+    j = low;
+    m = mid+1;
+    for(i = low; j <= mid && m <= high;i++){
+        if(array[j] <= array[m]){
+            temp[i] = array[j++];
+        }else{
+            temp[i] = array[m++];
+        }
+    }
+    if(j>mid){
+        for(k=m;k<=high;k++){
+            temp[i] = array[k];
+            i++;
+        }
+    }else{
+        for(k=j;k<=mid;k++){
+            temp[i] = array[k];
+            i++;
+        }
+    }
+    for(k=low;k<=high;k++){
+        array[k] = temp[k];
+    }
+}
+
+void mergesort(int array[], int low, int high){
+    int mid;
+    if(low<high){
+        mid = (low+high)/2;
+        #pragma omp parallel sections num_threads(2)
+        {
+            #pragma omp section
+            {
+                mergesort(array,low,mid);
+            }
+            #pragma omp section
+            {
+                mergesort(array,mid + 1,high);
+            }
+        }
+        merge(array,low,mid,high);
+    }
+}
+
+void main(){
+    int array[50],size;
+    printf("Enter number of elements: ");
+    scanf("%d",&size);
+    printf("Enter array elements: ");
+    for(int i=0;i<size;i++){
+        scanf("%d",&array[i]);
+    }
+    clock_t start,end;
+    start = clock();
+    mergesort(array,0,size - 1);
+    end = clock();
+    double timetaken = (end - start) / CLOCKS_PER_SEC;
+    for(int i=0;i<size;i++){
+        printf("%d ",array[i]);
+    }
+    printf("Time taken to sort is %f",timetaken);
+}
+
+
+PI:
+
+#include<stdio.h>
+#include<stdlib.h>
+#include<time.h>
+#include<omp.h>
+#include<math.h>
+
+void serial(int n){
+    double pi=0;
+    for(int i=0;i<n;i++){
+        pi += pow(-1,i)/(2*i+1);
+    }
+    pi = 4 * pi;
+    printf("pi value in serial is %1f\n",pi);
+}
+
+void montecarlo(int n,int k){
+    double x,y,d;
+    int pCircle=0;
+    int pSquare=0;
+    int i=0;
+    #pragma omp parallel firstprivate(x,y,d,i) reduction(+:pCircle,pSquare) num_threads(k)
+    {
+        srand48((int)time(NULL));
+        for(i=0;i<n;i++){
+            x=(double)drand48();
+            y=(double)drand48();
+            d = ((x*x)+(y*y));
+            if(d<=1){
+                pCircle++;
+            }
+            pSquare++;
+        }
+    }
+    double pi = (double) 4 * (double) pCircle/(double)pSquare;
+    printf( "Paralle %1f",pi);
+}
+
+void main(){
+    int n=5000;
+    int k = 8;
+    serial(n);
+    montecarlo(n,k);
+}
+
+
+ITERATION:
+
+
+#include<stdio.h>
+#include<stdlib.h>
+#include<omp.h>
+
+void main(){
+    int t,iters[8],i,itera;
+    printf("Enter number of iterations: ");
+    scanf("%d",&itera);
+    #pragma omp parallel for schedule(static,2)
+        for(i=1;i<=itera;i++)
+        {
+            t = omp_get_thread_num();
+            iters[t] += 1;
+            printf("thread %d iteration %d value %d\n",t,iters[t],i);
+        }
+}
+
+FIBONACI:
+
+#include<stdio.h>
+#include<omp.h>
+
+int fib(int n){
+    int a=0,b=1,t;
+    #pragma omp parallel for schedule(static,2)
+    for(int i=0;i<n;i++){
+        #pragma omp critical
+        {
+            t=a+b;
+            a=b;
+            b=t;
+        }
+    }
+    return a;
+}
+
+void main(){
+    int n=20;
+        double start = omp_get_wtime();
+        #pragma omp parallel for
+        for(int i=0;i<n;i++){
+            int t= omp_get_thread_num();
+            printf("Thread %d, fib(%d) is %d\n",t,i,fib(i));
+        }
+
+        double end = omp_get_wtime();
+        printf("time:%1f",end-start);
+}
+
+PRIME:
+
+#include<stdio.h>
+#include<stdlib.h>
+#include<omp.h>
+int isPrime(int n){
+    for(int i=2;i<=n/2;i++){
+        if(n%i == 0)
+            return 0;
+    }
+    return 1;
+}
+void main(){
+    int i=0,x=2,primes[1100];
+    int n=50;
+    double start = omp_get_wtime();
+    #pragma omp parallel
+    while(i<n){
+        if(isPrime(x)){
+            primes[i] = x;
+            #pragma omp atomic
+            i++;
+        }
+        #pragma omp atomic
+        x++;
+    }
+    double end = omp_get_wtime();
+    printf("Parallel execution time: %1f\n",end - start);
+    i=0,x=2;
+    start = omp_get_wtime();
+    while(i<n){
+        if(isPrime(x)){
+            primes[i] = x;
+            i++;
+        }
+        x++;
+    }
+    end = omp_get_wtime();
+    printf("Sequential execution time: %1f\n",end - start);
+    for(int j=0;j<=i;j++){
+        printf("%d ",primes[j]);
+    }
+}
+
+
+VECTOR ADDITION:
+
+#include<stdio.h>
+#include<stdlib.h>
+#include<omp.h>
+void vecAddParallel(int n, int *vec_r,int *vec_a,int *vec_b){
+    #pragma omp parallel for
+    for(int i=0;i<n;i++){
+        vec_r[i] = vec_a[i] +vec_b[i]; 
+    }
+}
+void main(){
+    int x=10;
+    int n=x,vec_a[x],vec_b[x],vec_r[x];
+    for(int i=0;i<n;i++){
+        vec_a[i] = rand()%10;
+        vec_b[i] = rand()%10;
+    }
+    double s = omp_get_wtime();
+    vecAddParallel(n,vec_r,vec_a,vec_b);
+    double e = omp_get_wtime();
+    printf("Time taken: %1f",e-s);
+    for(int i=0;i<x;i++){
+        printf("%d + %d = %d\n",vec_a[i],vec_b[i],vec_r[i]);
+    }
+}
+
+CRITICAL DIRECTIVE:
+
+#include<stdio.h>
+#include<omp.h>
+
+void main(){
+    int n=100;
+    int sum=0;
+    #pragma omp parallel for
+    for(int i=0;i<=n;i++){
+        #pragma omp critical
+        sum += i;
+    }
+
+    printf("%d",sum);
+}
+
+
+
+SEND and RECEIVE:
+
+
+#include<stdio.h>
+#include<mpi.h>
+#include<string.h>
+#include<stdlib.h>
+
+void main(int argc,char *argv[]){
+    char inmsg[100],outmsg[100] = "welcome to mpi";
+    int numtasks,rank,source,dest,tag=1,count,rc;
+    MPI_Status status;
+    MPI_Init(&argc,&argv);
+    MPI_Comm_size(MPI_COMM_WORLD,&numtasks);
+    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+
+    if(rank == 0){
+        dest = 1;
+        rc = MPI_Send(&outmsg,strlen(outmsg),MPI_CHAR,dest,tag,MPI_COMM_WORLD);
+    }else if(rank == 1){
+        source = 0;
+        rc = MPI_Recv(&inmsg,strlen(outmsg),MPI_CHAR,source,tag,MPI_COMM_WORLD,&status);
+    }
+    rc = MPI_Get_count(&status,MPI_CHAR,&count);
+    printf("Task %d, received %d char(s) task from %d source with tag %d and msg %s\n",rank,count,status.MPI_SOURCE,status.MPI_TAG,inmsg);
+    MPI_Finalize();
+}
+
+DEADLOCK:
+
+#include<stdio.h>
+#include<stdlib.h>
+#include<mpi.h>
+
+void main(int argc,char *argv[]){
+    int numtasks,rank;
+
+    MPI_Status status;
+    MPI_Request req;
+    MPI_Init(&argc,&argv);
+    MPI_Comm_size(MPI_COMM_WORLD,&numtasks);
+    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+    int out=77,in;
+    if(rank == 0){
+        MPI_Send(&out,1,MPI_INT,1,1,MPI_COMM_WORLD);
+        MPI_Recv(&in,1,MPI_INT,1,2,MPI_COMM_WORLD,&status);
+    }else if(rank == 1){
+        MPI_Send(&out,1,MPI_INT,0,2,MPI_COMM_WORLD);
+        MPI_Recv(&in,1,MPI_INT,0,1,MPI_COMM_WORLD,&status);
+        // MPI_Send(&out,1,MPI_INT,0,2,MPI_COMM_WORLD);
+    }
+    printf("rank %d msg %d with tag %d from task %d\n",rank,in,status.MPI_TAG,status.MPI_SOURCE);
+    MPI_Finalize();
+}
+
+VECTOR ADDITION:
+
+#include<stdio.h>
+#include<mpi.h>
+
+
+int main(int argc,char **argv)
+{
+    int process_rank,num_processes;
+    int i,n,n_p;
+    int a[100],b[100],sum[100],a_p[100],b_p[100],sum_p[100];
+
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &process_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &num_processes);
+
+
+    if(process_rank == 0)
+    {
+        printf("Enter the size of the array: \n");
+        scanf("%d",&n);
+
+        printf("Enter elements of first array: \n");
+        for(i=0;i<n;i++)
+        {
+            scanf("%d",&a[i]);
+        }
+        
+        printf("Enter elements of second array: \n");
+        for(i=0;i<n;i++)
+        {
+            scanf("%d",&b[i]);
+        }
+
+        n_p = n/num_processes;
+    }
+    // if(process_rank == 0)
+    // {
+    //     printf("Enter the length of the vectors\n");
+    //     scanf("%d", &n);
+
+    //     printf("Enter the elements of vector 1\n");
+    //     for(i = 0; i < n; i++)
+    //     {
+    //         scanf("%d", &a[i]);
+    //     }
+
+    //     printf("Enter the elements of vector 2\n");
+    //     for(i = 0; i < n; i++)
+    //     {
+    //         scanf("%d", &b[i]);
+    //     }
+
+    //     n_p = n / num_processes;
+    // }
+
+    MPI_Bcast(&n_p,1,MPI_INT,0,MPI_COMM_WORLD);
+    MPI_Bcast(&n,1,MPI_INT,0,MPI_COMM_WORLD);
+
+
+    MPI_Scatter(a,n_p,MPI_INT,a_p,n_p,MPI_INT,0,MPI_COMM_WORLD);
+    MPI_Scatter(b,n_p,MPI_INT,b_p,n_p,MPI_INT,0,MPI_COMM_WORLD);
+
+
+    for(i=0;i<n_p;i++)
+    {
+        sum_p[i] = a_p[i]+b_p[i];
+    }
+
+
+    MPI_Gather(sum_p,n_p,MPI_INT,sum,n_p,MPI_INT,0,MPI_COMM_WORLD);
+    
+    
+    if(process_rank == 0)
+    {
+        printf("Resultant vector :-\n");
+
+
+        for(i=0;i<n;i++)
+        {
+            printf("%d ",sum[i]);
+        }
+
+
+        printf("\n");
+    }
+
+
+    MPI_Finalize();
+    return 0;
+}
+
+
+FACTORIAL:
+
+#include<stdio.h>
+#include<stdlib.h>
+#include<mpi.h>
+
+//do not give high input bcos the stack will overflow and no output will be seen (segmentation fault)
+//try n = 7 or 8
+
+void main(int argc,char * argv[]){
+
+	int n,rank,size;
+
+	MPI_Init(&argc,&argv);
+	MPI_Comm_size(MPI_COMM_WORLD,&size);
+	MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+	int root=0;
+	int global;	
+
+	//len = (n/size)+1;
+	//printf("len %d\n",len);
+
+	if(rank==0)
+	{
+	printf("enter the value of n: \n");
+	scanf("%d",&n);
+	}
+
+	MPI_Bcast(&n,1,MPI_INT,root,MPI_COMM_WORLD);
+	int localprod=1;
+	int len = (n/size)+1;
+
+	//printf("RANK %d\n",rank);
+
+	for(int i=1;i<=len;i++){
+
+		printf("rank %d len:%d i:%d n:%d\n",rank,len,i,n);
+
+		int val = (rank*len) + i;
+
+		printf("rank: %d val :%d\n",rank,val);
+
+		if(val<=n)
+			localprod *= val;
+		else 
+			break;
+	}
+
+	printf("LOCAL PROF:%d\n",localprod);
+
+	S
+	
+	MPI_Reduce(&localprod,&global,1,MPI_INT,MPI_PROD,root,MPI_COMM_WORLD);
+
+	if(rank==root)
+		printf("Factorial of %d is %d\n",n,global);
+	MPI_Finalize();
+}
+
+PRIME:
+
+#include <stdio.h>
+#include <mpi.h>
+
+
+int isprime(int n) {
+    if (n <= 1) {
+        return 0;
+    }
+    for (int i = 2; i <= n/2; i++) {
+        if (n % i == 0) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+
+int main(int argc, char** argv) {
+    int n, rank, size;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    // Get n from user input
+    if (rank == 0) {
+        printf("Enter the value of n: \n");
+        scanf("%d", &n);
+    }
+
+    // Broadcast n to all processes
+    MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    // Calculate range of numbers for each process
+    int range = n/size;
+    int start = rank*range + 1;
+    int end = start + range - 1;
+    if (rank == size - 1) {
+        end = n;
+    }
+
+    // Find prime numbers in the assigned range
+    int i, j, is_prime;
+    for (i = start; i <= end; i++) {
+        is_prime = isprime(i);
+        if (is_prime) {
+            printf("Process %d found prime number: %d\n", rank, i);
+        }
+    }
+
+    MPI_Finalize();
+    return 0;
+}
+
+
+
+
+
+
